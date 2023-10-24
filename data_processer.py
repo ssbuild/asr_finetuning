@@ -3,6 +3,7 @@
 import copy
 from enum import Enum
 import numpy as np
+from datasets import Audio
 from transformers import PreTrainedTokenizer
 
 DEFAULT_PAD_TOKEN = "[PAD]"
@@ -39,28 +40,34 @@ class TokenIdsMaker:
         }
         return d
     @classmethod
-    def tunction(cls, tokenizer: PreTrainedTokenizer, config, sup, max_seq_length, examples):
-        sptoken = [config.bos_token_id]
-        ds = []
-
+    def tunction(cls, data_args,tokenizer: PreTrainedTokenizer, config, sup, max_seq_length,feature_extractor,sampling_rate,do_lower_case,forward_attention_mask, examples):
+        max_input_length = data_args.max_duration_in_seconds * feature_extractor.sampling_rate
+        min_input_length = data_args.min_duration_in_seconds * feature_extractor.sampling_rate
+        sampling_rate = data_args.sampling_rate
+        d = {}
         path,sentence = examples
-        a_ids = tokenizer.encode(text=build_template(q, prefix=prefix, history=examples[:sid]),
-                                 add_special_tokens=False)
-        b_ids = tokenizer.encode(text=a, add_special_tokens=False)
-        while len(a_ids) + len(b_ids) > max_seq_length - len(sptoken) - 1:
-            if len(b_ids) > len(a_ids):
-                b_ids.pop(-1)
-            else:
-                a_ids.pop(0)
-        b_ids += [config.eos_token_id]
-        input_ids = a_ids + b_ids
-        labels = copy.deepcopy(input_ids) if not sup else [-100] * len(a_ids) + copy.deepcopy(b_ids)
-        input_ids = sptoken + input_ids
-        labels = sptoken + labels if not sup else [-100] * len(sptoken) + labels
-        assert len(input_ids) <= max_seq_length
-        ds.append(cls.final(tokenizer, input_ids, labels, max_seq_length))
 
-        return ds
+        sample = Audio(sampling_rate=sampling_rate).decode_example({
+            "path": path,"bytes": None
+        })
+        length = len(sample["array"])
+        if length > min_input_length and length < max_input_length:
+            return None
+
+        inputs = feature_extractor(
+            sample["array"], sampling_rate=sample["sampling_rate"], return_attention_mask=forward_attention_mask
+        )
+
+        d["input_features"] = inputs["input_features"]
+        if forward_attention_mask:
+            d["attention_mask"] = inputs.get("attention_mask")[0]
+
+        # process targets
+        input_str = sentence.lower() if do_lower_case else sentence
+        input_ids = tokenizer(input_str).input_ids
+        labels = input_ids[:max_seq_length] if max_seq_length > 0 else input_ids
+        d["labels"] = np.asarray(labels,dtype=np.int32)
+        return d
 
 
 

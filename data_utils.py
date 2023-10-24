@@ -16,7 +16,7 @@ from deep_training.data_helper import DataHelper, ModelArguments, TrainingArgume
 from aigc_zoo.model_zoo.asr_seq2seq.llm_model import PetlArguments,LoraConfig,PromptArguments
 from fastdatasets.record import load_dataset as Loader, RECORD, WriterObject, gfile
 from transformers import PreTrainedTokenizer, HfArgumentParser, PretrainedConfig
-from data_processer import DataStrategy, TokenIdsMaker, build_template, DEFAULT_PAD_TOKEN, DEFAULT_EOS_TOKEN, \
+from data_processer import DataStrategy, TokenIdsMaker, DEFAULT_PAD_TOKEN, DEFAULT_EOS_TOKEN, \
     DEFAULT_BOS_TOKEN, DEFAULT_UNK_TOKEN
 from config import *
 from module_setup import module_setup
@@ -53,7 +53,6 @@ class NN_DataHelper(DataHelper):
 
     def __init__(self, *args, **kwargs):
         super(NN_DataHelper, self).__init__(*args, **kwargs)
-        assert data_conf[DataStrategy.slidding]['stride'] > 0
 
     def load_tokenizer_and_config(self, *args, **kwargs):
         ret = super().load_tokenizer_and_config(*args, **kwargs)
@@ -123,10 +122,6 @@ class NN_DataHelper(DataHelper):
         if strategy == DataStrategy.tunction:
             ds = TokenIdsMaker.tunction(tokenizer, config=config, max_seq_length=max_seq_length, examples=examples,
                                         **data_conf[strategy])
-        elif strategy == DataStrategy.slidding:
-            ds = TokenIdsMaker.slidding(tokenizer, config=config, max_seq_length=max_seq_length, examples=examples,
-                                        **data_conf[strategy])
-
         else:
             raise ValueError('Invalid strategy', strategy)
         if not ds:
