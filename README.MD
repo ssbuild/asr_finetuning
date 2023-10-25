@@ -26,13 +26,6 @@
 - common_voice https://huggingface.co/datasets/common_voice
    
 单条数据示例
-```text
-p prefix  optional
-q question optional
-a answer   must
-
-```
-
 ```json
 {
   "path": "../zh-CN_train_0/common_voice_zh-CN_33211332.mp3",
