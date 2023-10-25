@@ -78,7 +78,26 @@ log_level: info
 max_duration_in_seconds: 20
 min_duration_in_seconds: 0
 sampling_rate: null
-
+data_custom:
+   labels_do_lower_case: true
+    # 支持的语言
+    # ['english', 'chinese', 'german', 'spanish', 'russian', 'korean', 'french', 'japanese',
+    #'portuguese', 'turkish', 'polish', 'catalan', 'dutch', 'arabic', 'swedish', 'italian',
+    #'indonesian', 'hindi', 'finnish', 'vietnamese', 'hebrew', 'ukrainian', 'greek', 'malay',
+    #'czech', 'romanian', 'danish', 'hungarian', 'tamil', 'norwegian', 'thai', 'urdu', 'croatian',
+    #'bulgarian', 'lithuanian', 'latin', 'maori', 'malayalam', 'welsh', 'slovak', 'telugu', 'persian',
+    #'latvian', 'bengali', 'serbian', 'azerbaijani', 'slovenian', 'kannada', 'estonian', 'macedonian',
+    #'breton', 'basque', 'icelandic', 'armenian', 'nepali', 'mongolian', 'bosnian', 'kazakh', 'albanian',
+    #'swahili', 'galician', 'marathi', 'punjabi', 'sinhala', 'khmer', 'shona', 'yoruba', 'somali', 'afrikaans',
+    #'occitan', 'georgian', 'belarusian', 'tajik', 'sindhi', 'gujarati', 'amharic', 'yiddish', 'lao', 'uzbek',
+    #'faroese', 'haitian creole', 'pashto', 'turkmen', 'nynorsk', 'maltese', 'sanskrit', 'luxembourgish', 'myanmar',
+    #'tibetan', 'tagalog', 'malagasy', 'assamese', 'tatar', 'hawaiian', 'lingala', 'hausa', 'bashkir', 'javanese',
+    #'sundanese', 'burmese', 'valencian', 'flemish', 'haitian', 'letzeburgesch', 'pushto', 'panjabi', 'moldavian',
+    #'moldovan', 'sinhalese', 'castilian'].
+   language: "chinese"
+   # one of  [transcribe,translate]
+   # `transcribe` for speech recognition or `translate` for speech translation.
+   task: "transcribe"
 
 ##############  lora模块
 

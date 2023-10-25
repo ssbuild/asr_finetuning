@@ -16,15 +16,12 @@ from deep_training.data_helper import DataHelper, ModelArguments, TrainingArgume
 from aigc_zoo.model_zoo.asr_seq2seq.llm_model import PetlArguments,LoraConfig,PromptArguments
 from fastdatasets.record import load_dataset as Loader, RECORD, WriterObject, gfile
 from transformers import PreTrainedTokenizer, HfArgumentParser, PretrainedConfig
-from data_processer import DataStrategy, TokenIdsMaker, DEFAULT_PAD_TOKEN, DEFAULT_EOS_TOKEN, \
-    DEFAULT_BOS_TOKEN, DEFAULT_UNK_TOKEN
+from data_processer import TokenIdsMaker
 from config import *
 from module_setup import module_setup
 
 
 module_setup()
-
-
 
 
 def preprocess(text):
@@ -55,6 +52,11 @@ class NN_DataHelper(DataHelper):
                 and getattr(config, "apply_spec_augment", False)
                 and getattr(config, "mask_time_prob", 0) > 0
         )
+        language = self.data_args.data_custom["language"]
+        task = self.data_args.data_custom["task"]
+        if language is not None:
+            # We only need to set the task id when the language is specified (i.e. in a multilingual setting)
+            tokenizer.set_prefix_tokens(language=language, task=task)
 
         self.decoder_start_token_id = config.decoder_start_token_id
     def on_data_ready(self):
@@ -72,13 +74,12 @@ class NN_DataHelper(DataHelper):
         data_args = self.data_args
         examples = data
 
-        do_lower_case = True
+
         d = TokenIdsMaker.process(data_args,
                 tokenizer,
                 config,
                 max_seq_length,
                 feature_extractor,
-                do_lower_case,
                 self.forward_attention_mask,
                 examples)
 

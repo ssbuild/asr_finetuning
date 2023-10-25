@@ -1,22 +1,9 @@
 # @Time    : 2023/3/25 18:36
 # @Author  : tk
 import copy
-from enum import Enum
 import numpy as np
 from datasets import Audio
 from transformers import PreTrainedTokenizer
-
-DEFAULT_PAD_TOKEN = "[PAD]"
-DEFAULT_EOS_TOKEN = "</s>"
-DEFAULT_BOS_TOKEN = "</s>"
-DEFAULT_UNK_TOKEN = "</s>"
-
-class DataStrategy(Enum):
-    tunction = 1
-
-
-
-
 
 
 class TokenIdsMaker:
@@ -26,9 +13,9 @@ class TokenIdsMaker:
                 config,
                 max_seq_length,
                 feature_extractor,
-                do_lower_case,
                 forward_attention_mask,
                 examples):
+        do_lower_case = data_args.data_custom["labels_do_lower_case"]
         max_input_length = data_args.max_duration_in_seconds * feature_extractor.sampling_rate
         min_input_length = data_args.min_duration_in_seconds * feature_extractor.sampling_rate
         sampling_rate = data_args.sampling_rate or feature_extractor.sampling_rate

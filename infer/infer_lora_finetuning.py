@@ -3,15 +3,17 @@
 # @FileName: infer_lora_finetuning
 import os
 import sys
+
 sys.path.append(os.path.join(os.path.dirname(__file__),'..'))
 
 import os
 import torch
+from datasets import Audio
 from deep_training.data_helper import ModelArguments
 from transformers import HfArgumentParser,AutoConfig
-from data_utils import train_info_args, NN_DataHelper,global_args,build_template
+from data_utils import train_info_args, NN_DataHelper,global_args
 from aigc_zoo.model_zoo.asr_seq2seq.llm_model import MyTransformer,PetlArguments,PromptArguments
-from aigc_zoo.utils.llm_generate import Generate
+
 
 
 if __name__ == '__main__':
@@ -22,7 +24,6 @@ if __name__ == '__main__':
 
     dataHelper = NN_DataHelper(model_args)
     tokenizer, _, _, _ = dataHelper.load_tokenizer_and_config()
-    
 
     # 一般根据时间排序选最新的权重文件夹
     weight_dir = '../scripts/best_ckpt'
@@ -30,6 +31,10 @@ if __name__ == '__main__':
 
     config = AutoConfig.from_pretrained(weight_dir)
     lora_args = PetlArguments.from_pretrained(lora_weight_dir)
+
+    processor = dataHelper.processor
+    config.forced_decoder_ids = None
+    forced_decoder_ids = processor.get_decoder_prompt_ids(language="chinese", task="transcribe")
 
     assert lora_args.inference_mode == True
 
@@ -59,13 +64,21 @@ if __name__ == '__main__':
     else:
         model = pl_model.get_llm_model()
 
-        text_list = ["写一个诗歌，关于冬天",
-                     "晚上睡不着应该怎么办",
-                     "从南京到上海的路线",
-                     ]
-        for input in text_list:
-            response = Generate.generate(model, query=build_template(input), tokenizer=tokenizer, max_length=512,
-                                         eos_token_id=config.eos_token_id,
-                                         do_sample=False, top_p=0.7, temperature=0.95, )
-            print('input', input)
-            print('output', response)
+        sample = Audio(sampling_rate=processor.feature_extractor.sampling_rate).decode_example({
+            "path": "../assets/zh-CN_train_0/common_voice_zh-CN_18654294.mp3", "bytes": None
+        })
+
+        input_features = processor(sample["array"], sampling_rate=sample["sampling_rate"],
+                                   return_tensors="pt").input_features
+
+        input_features = input_features.half().to(model.device)
+        # generate token ids
+        predicted_ids = model.generate(input_features, forced_decoder_ids=forced_decoder_ids)
+        # decode token ids to text
+        transcription = processor.batch_decode(predicted_ids)
+
+        print(transcription)
+
+        transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)
+
+        print(transcription)
