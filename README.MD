@@ -19,7 +19,7 @@
 - [whisper-base](https://huggingface.co/openai/whisper-base)
 - [whisper-small](https://huggingface.co/openai/whisper-small)
 - [whisper-tiny](https://huggingface.co/openai/whisper-tiny)
-
+- [speecht5_asr](https://huggingface.co/microsoft/speecht5_asr)
 ## data sample
 - open_data https://github.com/ssbuild/open_data
 - common_voice_11_0 https://huggingface.co/datasets/mozilla-foundation/common_voice_11_0

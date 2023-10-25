@@ -49,6 +49,14 @@ MODELS_MAP = {
         'tokenizer_name': '/data/nlp/pre_models/torch/whisper/whisper-tiny',
     },
 
+    'speecht5_asr': {
+        'model_type': 'speecht5',
+        'model_name_or_path': '/data/nlp/pre_models/torch/speecht5/speecht5_asr',
+        'config_name': '/data/nlp/pre_models/torch/speecht5/speecht5_asr/config.json',
+        'tokenizer_name': '/data/nlp/pre_models/torch/speecht5/speecht5_asr',
+    },
+
+
 }
 
 
