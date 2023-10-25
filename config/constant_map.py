@@ -42,6 +42,12 @@ MODELS_MAP = {
         'config_name': '/data/nlp/pre_models/torch/whisper/whisper-small/config.json',
         'tokenizer_name': '/data/nlp/pre_models/torch/whisper/whisper-small',
     },
+    'whisper-tiny': {
+        'model_type': 'whisper',
+        'model_name_or_path': '/data/nlp/pre_models/torch/whisper/whisper-tiny',
+        'config_name': '/data/nlp/pre_models/torch/whisper/whisper-tiny/config.json',
+        'tokenizer_name': '/data/nlp/pre_models/torch/whisper/whisper-tiny',
+    },
 
 }
 

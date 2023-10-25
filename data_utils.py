@@ -24,20 +24,6 @@ from module_setup import module_setup
 
 module_setup()
 
-data_conf = {
-    'strategy': DataStrategy.tunction,  # 数据策略选项
-    DataStrategy.tunction: {
-        'sup': True, # 是否监督模式
-    },
-
-    DataStrategy.slidding: {
-        'stride': int(train_info_args['max_seq_length'] / 3 * 2),
-        'sup': True, # 是否监督模式
-        "src_max_length": train_info_args['max_seq_length'] - 10,
-        "dst_max_length": None,
-    }
-
-}
 
 
 
@@ -50,60 +36,27 @@ def postprocess(text):
 
 class NN_DataHelper(DataHelper):
     index = 1
-
+    forward_attention_mask = False
+    decoder_start_token_id = None
     def __init__(self, *args, **kwargs):
         super(NN_DataHelper, self).__init__(*args, **kwargs)
 
     def load_tokenizer_and_config(self, *args, **kwargs):
         ret = super().load_tokenizer_and_config(*args, **kwargs)
         self._preprocess_tokenizer_config()
+        self.load_processer()
+        self.load_feature_extractor()
         return ret
 
     def _preprocess_tokenizer_config(self):
-        model_args = self.model_args
-        tokenizer = self.tokenizer
         config = self.config
+        self.forward_attention_mask = (
+                getattr(config, "model_type", None) == "whisper"
+                and getattr(config, "apply_spec_augment", False)
+                and getattr(config, "mask_time_prob", 0) > 0
+        )
 
-
-
-        if "llama" in model_args.model_type.lower():
-            special_tokens_dict = dict()
-            if tokenizer.pad_token is None:
-                special_tokens_dict["pad_token"] = DEFAULT_PAD_TOKEN
-            if tokenizer.eos_token is None:
-                special_tokens_dict["eos_token"] = DEFAULT_EOS_TOKEN
-            if tokenizer.bos_token is None:
-                special_tokens_dict["bos_token"] = DEFAULT_BOS_TOKEN
-            if tokenizer.unk_token is None:
-                special_tokens_dict["unk_token"] = DEFAULT_UNK_TOKEN
-
-            _ = tokenizer.add_special_tokens(special_tokens_dict)
-
-            # tokenizer.add_special_tokens({
-            #     "eos_token": DEFAULT_EOS_TOKEN,
-            #     "bos_token": DEFAULT_BOS_TOKEN,
-            #     "unk_token": DEFAULT_UNK_TOKEN,
-            # })
-            # if tokenizer.pad_token_id is None or tokenizer.pad_token_id == -1:
-            #     tokenizer.pad_token_id = tokenizer.eos_token_id
-
-        if tokenizer.pad_token is None:
-            tokenizer.add_special_tokens({
-                "pad_token": tokenizer.eos_token,
-            })
-        if config.pad_token_id is None or config.pad_token_id == -1:
-            config.pad_token_id = tokenizer.eos_token_id
-
-
-
-        if config.decoder_start_token_id is None:
-            config.decoder_start_token_id = config.bos_token_id
-
-        if config.decoder_start_token_id != tokenizer.bos_token_id:
-            print('*' * 30, 'config.decoder_start_token_id != tokenizer.bos_token_id !!!')
-
-        assert config.decoder_start_token_id == config.bos_token_id
-
+        self.decoder_start_token_id = config.decoder_start_token_id
     def on_data_ready(self):
         self.index = -1
 
@@ -115,21 +68,26 @@ class NN_DataHelper(DataHelper):
         config = self.config
         max_seq_length = self.max_seq_length_dict[mode]
         tokenizer = self.tokenizer
-
+        feature_extractor = self.feature_extractor
+        data_args = self.data_args
         examples = data
 
-        strategy = data_conf['strategy']
-        if strategy == DataStrategy.tunction:
-            ds = TokenIdsMaker.tunction(tokenizer, config=config, max_seq_length=max_seq_length, examples=examples,
-                                        **data_conf[strategy])
-        else:
-            raise ValueError('Invalid strategy', strategy)
-        if not ds:
+        do_lower_case = True
+        d = TokenIdsMaker.process(data_args,
+                tokenizer,
+                config,
+                max_seq_length,
+                feature_extractor,
+                do_lower_case,
+                self.forward_attention_mask,
+                examples)
+
+        if not d:
             return None
 
         if self.index < 3:
-            print(ds[0])
-        return ds
+            print(d)
+        return d
 
     def _get_paragraph(self,lines):
         D = []
@@ -150,32 +108,41 @@ class NN_DataHelper(DataHelper):
         return D
 
     def collate_fn(self, batch):
-        o = {}
-        for i, b in enumerate(batch):
-            if i == 0:
-                for k in b:
-                    o[k] = [torch.tensor(b[k])]
-            else:
-                for k in b:
-                    o[k].append(torch.tensor(b[k]))
-        for k in o:
-            o[k] = torch.stack(o[k])
+        batch = copy.copy(batch)
+        model_input_name = "input_features"
+        input_shape = [np.asarray(feature["shape"],dtype=np.int64) for feature in batch]
+        input_features = [{model_input_name: np.asarray(feature[model_input_name],dtype=np.float32).reshape(input_shape[i])} for i,feature in enumerate(batch)]
+        label_features = [{"input_ids": feature["labels"]} for feature in batch]
 
-        maxlen = torch.max(o.pop('seqlen'))
-        o['input_ids'] = o['input_ids'][:, :maxlen]
-        o['attention_mask'] = o['attention_mask'][:, :maxlen]
-        o['labels'] = o['labels'][:, :maxlen].long()
+        o = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
+
+        if self.forward_attention_mask:
+            o["attention_mask"] = torch.LongTensor([feature["attention_mask"] for feature in batch])
+
+        labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
+
+        # replace padding with -100 to ignore loss correctly
+        labels = labels_batch["input_ids"].masked_fill(labels_batch.attention_mask.ne(1), -100)
+
+        # if bos token is appended in previous tokenization step,
+        # cut bos token here as it's append later anyways
+        if (labels[:, 0] == self.decoder_start_token_id).all().cpu().item():
+            labels = labels[:, 1:]
+
+        o["labels"] = labels
         return o
 
     def make_dataset_all(self):
         data_args = self.data_args
         # schema for arrow parquet
         schema = {
-            "input_ids": "int32_list",
-            "attention_mask": "int32_list",
+            "input_features": "float32_list",
+            "shape": "int32_list",
             "labels": "int32_list",
-            "seqlen": "int32_list",
         }
+        if self.forward_attention_mask:
+            schema["attention_mask"] = "int32_list"
+
         # 缓存数据集
         if data_args.do_train:
             self.make_dataset_with_args(data_args.train_file, mixed_data=False, shuffle=True, mode='train',
@@ -220,26 +187,3 @@ if __name__ == '__main__':
     dataHelper.make_dataset_all()
 
 
-    # def shuffle_records(record_filenames, outfile, compression_type='GZIP'):
-    #     print('shuffle_records record...')
-    #     options = RECORD.TFRecordOptions(compression_type=compression_type)
-    #     dataset_reader = Loader.RandomDataset(record_filenames, options=options, with_share_memory=True)
-    #     data_size = len(dataset_reader)
-    #     all_example = []
-    #     for i in tqdm(range(data_size), desc='load records'):
-    #         serialized = dataset_reader[i]
-    #         all_example.append(serialized)
-    #     dataset_reader.close()
-    #
-    #     shuffle_idx = list(range(data_size))
-    #     random.shuffle(shuffle_idx)
-    #     writer = WriterObject(outfile, options=options)
-    #     for i in tqdm(shuffle_idx, desc='shuffle record'):
-    #         example = all_example[i]
-    #         writer.write(example)
-    #     writer.close()
-    #
-    #
-    # # 对每个record 再次打乱
-    # for filename in dataHelper.train_files:
-    #     shuffle_records(filename, filename)

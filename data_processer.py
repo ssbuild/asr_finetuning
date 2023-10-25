@@ -21,29 +21,17 @@ class DataStrategy(Enum):
 
 class TokenIdsMaker:
     @classmethod
-    def final(cls, tokenizer, input_ids, labels, max_seq_length):
-        seqlen = np.asarray(len(input_ids), dtype=np.int32)
-        pad_len = max_seq_length - seqlen
-        input_ids = np.asarray(input_ids, dtype=np.int32)
-        attention_mask = np.asarray([1] * len(input_ids), dtype=np.int32)
-        labels = np.asarray(labels, dtype=np.int32)
-        if pad_len:
-            pad_val = tokenizer.eos_token_id
-            input_ids = np.pad(input_ids, (0, pad_len), 'constant', constant_values=(pad_val, pad_val))
-            attention_mask = np.pad(attention_mask, (0, pad_len), 'constant', constant_values=(0, 0))
-            labels = np.pad(labels, (0, pad_len), 'constant', constant_values=(-100, -100))
-        d = {
-            'input_ids': input_ids,
-            'attention_mask': attention_mask,
-            'labels': labels,
-            'seqlen': seqlen
-        }
-        return d
-    @classmethod
-    def tunction(cls, data_args,tokenizer: PreTrainedTokenizer, config, sup, max_seq_length,feature_extractor,sampling_rate,do_lower_case,forward_attention_mask, examples):
+    def process(cls, data_args,
+                tokenizer: PreTrainedTokenizer,
+                config,
+                max_seq_length,
+                feature_extractor,
+                do_lower_case,
+                forward_attention_mask,
+                examples):
         max_input_length = data_args.max_duration_in_seconds * feature_extractor.sampling_rate
         min_input_length = data_args.min_duration_in_seconds * feature_extractor.sampling_rate
-        sampling_rate = data_args.sampling_rate
+        sampling_rate = data_args.sampling_rate or feature_extractor.sampling_rate
         d = {}
         path,sentence = examples
 
@@ -51,14 +39,16 @@ class TokenIdsMaker:
             "path": path,"bytes": None
         })
         length = len(sample["array"])
-        if length > min_input_length and length < max_input_length:
+        if length <= min_input_length and length > max_input_length:
             return None
 
         inputs = feature_extractor(
             sample["array"], sampling_rate=sample["sampling_rate"], return_attention_mask=forward_attention_mask
         )
 
-        d["input_features"] = inputs["input_features"]
+        input_features = inputs["input_features"][0]
+        d["shape"] = np.asarray(list(input_features.shape),dtype=np.int32)
+        d["input_features"] = input_features.reshape(-1)
         if forward_attention_mask:
             d["attention_mask"] = inputs.get("attention_mask")[0]
 

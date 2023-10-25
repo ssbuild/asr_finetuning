@@ -6,7 +6,7 @@ global_args:
   load_in_bit: 0
   config_merge: {}
   # 模型权重 ， 对应 config.constant_map.py
-  model_name: whisper-small
+  model_name: whisper-tiny
 
   # one of auto 16 bf16 32
   precision: auto
@@ -73,6 +73,13 @@ dataloader_drop_last: true
 dataloader_pin_memory: true
 dataloader_num_workers: 0
 log_level: info
+
+
+
+#音频
+max_duration_in_seconds: 20
+min_duration_in_seconds: 0
+sampling_rate: null
 
 ##############  lora模块
 

@@ -4,4 +4,6 @@ bitsandbytes>=0.39
 accelerate>=0.20
 cpm-kernels
 sox
+soundfile
+librosa
 git+https://github.com/ssbuild/aigc_zoo#egg=aigc_zoo
