@@ -23,7 +23,8 @@ data_backend: parquet
 convert_onnx: false
 do_train: true
 train_file:
-- ../data/common_voice_zh-CN.json
+- ../data/*.json
+
 max_epochs: 20
 max_steps: -1
 
